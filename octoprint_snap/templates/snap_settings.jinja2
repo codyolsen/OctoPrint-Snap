@@ -1,0 +1,20 @@
+<form class="form-horizontal">
+    <div class="control-group">
+        <label class="control-label">{{ _('Access Key ID') }}</label>
+        <div class="controls">
+            <input type="text" class="input-block-level" data-bind="value: settings.plugins.snap.iam_access_key_id">
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Secret Access Key here') }}</label>
+        <div class="controls">
+            <input type="text" class="input-block-level" data-bind="value: settings.plugins.snap.iam_secret_access_key">
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Interval') }}</label>
+        <div class="controls">
+            <input type="text" class="input-block-level" data-bind="value: settings.plugins.snap.interval">
+        </div>
+    </div>
+</form>

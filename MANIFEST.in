@@ -1,0 +1,4 @@
+include README.md
+recursive-include octoprint_snap/templates *
+recursive-include octoprint_snap/translations *
+recursive-include octoprint_snap/static *
