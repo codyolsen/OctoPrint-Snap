@@ -1,5 +1,7 @@
 # coding=utf-8
 from __future__ import absolute_import
+import octoprint.events
+from octoprint.util import RepeatedTimer
 
 ### (Don't forget to remove me)
 # This is a basic skeleton for your plugin's __init__.py. You probably want to adjust the class name of your plugin
@@ -10,6 +12,8 @@ from __future__ import absolute_import
 # Take a look at the documentation on what other plugin mixins are available.
 
 import octoprint.plugin
+import boto3
+import requests
 
 class SnapPlugin(octoprint.plugin.StartupPlugin,
 								 octoprint.plugin.SettingsPlugin,
@@ -27,6 +31,15 @@ class SnapPlugin(octoprint.plugin.StartupPlugin,
  	
 	def on_after_startup(self):
 		self._logger.info("Oh Snap! (Current Interval: %s)" % self._settings.get(["interval"]))
+		snapshotUrl = self._settings.global_get(["webcam","snapshot"])
+		self._logger.info(snapshotUrl)
+		
+
+		# s3_object = boto3.resource('s3').Object(bucket_name, object_key)
+
+		# with requests.get(url, stream=True) as r:
+		# 		s3_object.put(Body=r.content)
+
 
 	def get_template_configs(self):
 		return [
@@ -65,6 +78,16 @@ class SnapPlugin(octoprint.plugin.StartupPlugin,
 				pip="https://github.com/codyolsen/OctoPrint-Snap/archive/{target_version}.zip"
 			)
 		)
+
+
+# Events to handle:
+# PrintStarted
+# PrintFailed
+# PrintDone
+# PrintCancelling
+# PrintCancelled
+# PrintPaused
+# PrintResumed
 
 # If you want your plugin to be registered within OctoPrint under a different name than what you defined in setup.py
 # ("OctoPrint-PluginSkeleton"), you may define that here. Same goes for the other metadata derived from setup.py that
