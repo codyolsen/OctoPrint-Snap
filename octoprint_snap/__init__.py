@@ -15,7 +15,8 @@ import octoprint.plugin
 import boto3
 import requests
 
-class SnapPlugin(octoprint.plugin.StartupPlugin,
+class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
+								 octoprint.plugin.StartupPlugin,
 								 octoprint.plugin.SettingsPlugin,
                  octoprint.plugin.AssetPlugin,
                  octoprint.plugin.TemplatePlugin):
@@ -28,13 +29,18 @@ class SnapPlugin(octoprint.plugin.StartupPlugin,
 			iam_access_key_id="",
 			iam_secret_access_key="",
 		)
- 	
+
+	# Event Methods
+	def do_something(self):
+		self._logger.info("This comes from another function within the class")
+
 	def on_after_startup(self):
 		self._logger.info("Oh Snap! (Current Interval: %s)" % self._settings.get(["interval"]))
 		snapshotUrl = self._settings.global_get(["webcam","snapshot"])
-		self._logger.info(snapshotUrl)
-		
+		self._logger.info(locals()["self"])
 
+		# locals()["do_something"]()
+		self.do_something()
 		# s3_object = boto3.resource('s3').Object(bucket_name, object_key)
 
 		# with requests.get(url, stream=True) as r:
@@ -81,13 +87,20 @@ class SnapPlugin(octoprint.plugin.StartupPlugin,
 
 
 # Events to handle:
+
+# ## Start the loop events
 # PrintStarted
+# PrintResumed
+
+# ## Update the interval loop
+# SettingsUpdated
+
+# ## End the loop events
 # PrintFailed
 # PrintDone
 # PrintCancelling
 # PrintCancelled
 # PrintPaused
-# PrintResumed
 
 # If you want your plugin to be registered within OctoPrint under a different name than what you defined in setup.py
 # ("OctoPrint-PluginSkeleton"), you may define that here. Same goes for the other metadata derived from setup.py that
