@@ -30,22 +30,93 @@ class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 			iam_secret_access_key="",
 		)
 
-	# Event Methods
-	def do_something(self):
-		self._logger.info("This comes from another function within the class")
-
 	def on_after_startup(self):
 		self._logger.info("Oh Snap! (Current Interval: %s)" % self._settings.get(["interval"]))
 		snapshotUrl = self._settings.global_get(["webcam","snapshot"])
 		self._logger.info(locals()["self"])
 
 		# locals()["do_something"]()
-		self.do_something()
+		# self.do_something()
 		# s3_object = boto3.resource('s3').Object(bucket_name, object_key)
 
 		# with requests.get(url, stream=True) as r:
 		# 		s3_object.put(Body=r.content)
 
+	# TODO Refactor these event calls into meta invocations similar to `.send` or `.call` in node.
+	# https://stackoverflow.com/questions/3951840/how-to-invoke-a-function-on-an-object-dynamically-by-name
+
+	# Timer event types
+	TIMER_START = 0
+	TIMER_END = 1
+	TIMER_UPDATE = 2
+
+	# Octopi events to handle
+	TIMER_START_EVENTS = [
+		"PrintStarted",
+		"PrintResumed",
+	]	
+
+	# Update the interval loop
+	TIMER_UPDATE_EVENTS = [
+		"SettingsUpdated"
+	]
+
+	# End the loop events
+	TIMER_END_EVENTS = [
+		"PrintFailed",
+		"PrintDone",
+		"PrintCancelling",
+		"PrintCancelled",
+		"PrintPaused",
+	]
+
+	def execute_timer_event(self, event):
+		self._logger.debug(event)
+
+		if event in self.TIMER_START_EVENTS:
+			self.start_printing_timer
+		elif event in self.TIMER_END_EVENTS:
+			self.end_printing_timer
+		elif event in self.TIMER_UPDATE_EVENTS:
+			self.update_printing_timer
+		else:
+			self._logger.debug("No match for event")
+			return
+
+	def on_event(self, event, payload):
+		self.execute_timer_event(event)
+
+	# Timer for interval
+	printing_timer = None
+
+	# Event for timer
+	def printing_timer_tick(self):
+		self._logger.debug("timer tick")
+
+	# Start
+	def start_printing_timer(self, run_first = False):
+		self._logger.debug("Start timer")
+		interval = int(self._settings.get(["interval"]))
+
+		# Start create and start the timer.
+		self.printing_timer = RepeatedTimer(
+			interval * 60, self.printing_timer_tick, run_first = run_first
+		)
+		self.progress_timer.start()
+
+	# Stop
+	def end_printing_timer(self):
+		self._logger.debug("stop timer")
+
+	# Stop
+	def update_printing_timer(self):
+		self._logger.debug("update timer")
+
+	# Restart
+	def restart_printing_timer(self):
+		self._logger.debug("restart timer")
+		self.start_printing_timer(True)
+		self.start_printing_timer()
 
 	def get_template_configs(self):
 		return [
@@ -84,23 +155,6 @@ class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 				pip="https://github.com/codyolsen/OctoPrint-Snap/archive/{target_version}.zip"
 			)
 		)
-
-
-# Events to handle:
-
-# ## Start the loop events
-# PrintStarted
-# PrintResumed
-
-# ## Update the interval loop
-# SettingsUpdated
-
-# ## End the loop events
-# PrintFailed
-# PrintDone
-# PrintCancelling
-# PrintCancelled
-# PrintPaused
 
 # If you want your plugin to be registered within OctoPrint under a different name than what you defined in setup.py
 # ("OctoPrint-PluginSkeleton"), you may define that here. Same goes for the other metadata derived from setup.py that
