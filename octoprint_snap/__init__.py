@@ -71,16 +71,13 @@ class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 	]
 
 	def execute_timer_event(self, event):
-		self._logger.debug(event)
-
 		if event in self.TIMER_START_EVENTS:
-			self.start_printing_timer
+			self.start_printing_timer()
 		elif event in self.TIMER_END_EVENTS:
-			self.end_printing_timer
+			self.end_printing_timer()
 		elif event in self.TIMER_UPDATE_EVENTS:
-			self.update_printing_timer
+			self.update_printing_timer()
 		else:
-			self._logger.debug("No match for event")
 			return
 
 	def on_event(self, event, payload):
@@ -102,7 +99,7 @@ class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 		self.printing_timer = RepeatedTimer(
 			interval * 60, self.printing_timer_tick, run_first = run_first
 		)
-		self.progress_timer.start()
+		self.printing_timer.start()
 
 	# Stop
 	def end_printing_timer(self):
