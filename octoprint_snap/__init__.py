@@ -1,19 +1,12 @@
 # coding=utf-8
 from __future__ import absolute_import
 import octoprint.events
-from octoprint.util import RepeatedTimer
-
-### (Don't forget to remove me)
-# This is a basic skeleton for your plugin's __init__.py. You probably want to adjust the class name of your plugin
-# as well as the plugin mixins it's subclassing from. This is really just a basic skeleton to get you started,
-# defining your plugin as a template plugin, settings and asset plugin. Feel free to add or remove mixins
-# as necessary.
-#
-# Take a look at the documentation on what other plugin mixins are available.
-
 import octoprint.plugin
-import boto3
-import requests
+from octoprint.util import RepeatedTimer
+from datetime import datetime
+from boto3 import resource
+from requests import get, post, head
+from mimetypes import guess_extension
 
 class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 								 octoprint.plugin.StartupPlugin,
@@ -28,27 +21,15 @@ class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 			interval=0,
 			iam_access_key_id="",
 			iam_secret_access_key="",
+			s3_bucket_name="",
+			webhook_url="",
 		)
 
 	def on_after_startup(self):
-		self._logger.info("Oh Snap! (Current Interval: %s)" % self._settings.get(["interval"]))
-		snapshotUrl = self._settings.global_get(["webcam","snapshot"])
-		self._logger.info(locals()["self"])
+		self._logger.info("Oh Snap! (Current Interval: %s)", self._settings.get(["interval"]))
 
-		# locals()["do_something"]()
-		# self.do_something()
-		# s3_object = boto3.resource('s3').Object(bucket_name, object_key)
-
-		# with requests.get(url, stream=True) as r:
-		# 		s3_object.put(Body=r.content)
-
-	# TODO Refactor these event calls into meta invocations similar to `.send` or `.call` in node.
+	# TODO Refactor if possible these event calls into meta invocations similar to `.send` or `.call` in node.
 	# https://stackoverflow.com/questions/3951840/how-to-invoke-a-function-on-an-object-dynamically-by-name
-
-	# Timer event types
-	TIMER_START = 0
-	TIMER_END = 1
-	TIMER_UPDATE = 2
 
 	# Octopi events to handle
 	TIMER_START_EVENTS = [
@@ -62,7 +43,7 @@ class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 	]
 
 	# End the loop events
-	TIMER_END_EVENTS = [
+	TIMER_STOP_EVENTS = [
 		"PrintFailed",
 		"PrintDone",
 		"PrintCancelling",
@@ -73,10 +54,10 @@ class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 	def execute_timer_event(self, event):
 		if event in self.TIMER_START_EVENTS:
 			self.start_printing_timer()
-		elif event in self.TIMER_END_EVENTS:
-			self.end_printing_timer()
+		elif event in self.TIMER_STOP_EVENTS:
+			self.stop_printing_timer()
 		elif event in self.TIMER_UPDATE_EVENTS:
-			self.update_printing_timer()
+			self.restart_printing_timer()
 		else:
 			return
 
@@ -88,32 +69,67 @@ class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 
 	# Event for timer
 	def printing_timer_tick(self):
-		self._logger.debug("timer tick")
+		self._logger.debug("timer tick at interval %s", self._settings.get(["interval"]))
+		snapshot_url = self.snapshot_to_s3()
+		self.send_ifttt(snapshot_url)
+
+	# Passed to timer as interval function to dynamically change interval.
+	def printing_timer_interval(self):
+		return int(self._settings.get(["interval"]))
 
 	# Start
 	def start_printing_timer(self, run_first = False):
-		self._logger.debug("Start timer")
-		interval = int(self._settings.get(["interval"]))
+		self._logger.debug("start timer")
 
-		# Start create and start the timer.
+		# Create and start the timer.
 		self.printing_timer = RepeatedTimer(
-			interval * 60, self.printing_timer_tick, run_first = run_first
+			self.printing_timer_interval, self.printing_timer_tick, run_first = run_first
 		)
 		self.printing_timer.start()
 
 	# Stop
-	def end_printing_timer(self):
+	def stop_printing_timer(self):
 		self._logger.debug("stop timer")
-
-	# Stop
-	def update_printing_timer(self):
-		self._logger.debug("update timer")
+		self.printing_timer.cancel()
+		self.printing_timer = None
 
 	# Restart
 	def restart_printing_timer(self):
 		self._logger.debug("restart timer")
+
+		if self.printing_timer == None:
+			return
+
+		self.stop_printing_timer()
 		self.start_printing_timer(True)
-		self.start_printing_timer()
+
+	def snapshot_to_s3(self):
+		s3_bucket = self._settings.get(["s3_bucket_name"])
+
+		# Get the content-type for extension and a timestamp for key 
+		snapshot_url = self._settings.global_get(["webcam","snapshot"])
+		extension = guess_extension(head(snapshot_url).headers['content-type'])
+		object_key = datetime.utcnow().strftime("%m-%d-%Y_%H:%M:%S") + extension
+
+		# Create object
+		s3_object = resource(
+			's3',
+			aws_access_key_id=self._settings.get(["iam_access_key_id"]),
+			aws_secret_access_key=self._settings.get(["iam_secret_access_key"])
+		).Object(s3_bucket, object_key)
+		
+		# Stream to s3
+		with get(snapshot_url, stream=True) as r:
+			s3_object.put(
+				Body=r.content,
+				ACL='public-read'
+			)
+
+		return "https://%s.s3.amazonaws.com/%s" % (s3_bucket, object_key)
+
+	def send_ifttt(self, snapshot_url):
+		json = {'value1':'this is value_1','value2':'this is value_2','value3':snapshot_url}
+		post(self._settings.get(["webhook_url"]), data=json)
 
 	def get_template_configs(self):
 		return [
