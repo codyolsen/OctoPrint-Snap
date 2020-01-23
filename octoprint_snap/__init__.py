@@ -1,4 +1,8 @@
 # coding=utf-8
+
+# pylint: disable=E1101
+# //https://github.com/PyCQA/pylint/issues/3134
+
 from __future__ import absolute_import
 import octoprint.events
 import octoprint.plugin
@@ -90,8 +94,10 @@ class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 	# Stop
 	def stop_printing_timer(self):
 		self._logger.debug("stop timer")
-		self.printing_timer.cancel()
-		self.printing_timer = None
+		if self.printing_timer != None:
+			self.printing_timer.cancel()
+			self.printing_timer = None
+		return
 
 	# Restart
 	def restart_printing_timer(self):
@@ -173,6 +179,7 @@ class SnapPlugin(octoprint.plugin.EventHandlerPlugin,
 # ("OctoPrint-PluginSkeleton"), you may define that here. Same goes for the other metadata derived from setup.py that
 # can be overwritten via __plugin_xyz__ control properties. See the documentation for that.
 __plugin_name__ = "Snap"
+__plugin_pythoncompat__ = ">=2.7,<4"
 
 def __plugin_load__():
 	global __plugin_implementation__
